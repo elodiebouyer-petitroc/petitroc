@@ -1,0 +1,16 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+@theme {
+  --color-orange-50: #FFF9F5;
+  --color-orange-100: #FFF2E6;
+  --color-orange-200: #FFCC99;
+  --color-orange-300: #FFB366;
+  --color-orange-400: #FF9933;
+  --color-orange-500: #FF7F00;
+  --color-orange-600: #E67300;
+  --color-orange-700: #CC6600;
+  --color-orange-800: #994C00;
+  --color-orange-900: #663300;
+  --color-orange-950: #331A00;
+}

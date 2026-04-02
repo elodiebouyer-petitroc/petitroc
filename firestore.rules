@@ -1,0 +1,284 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId
+    // Fields:
+    //   - uid: string (required)
+    //   - displayName: string (required)
+    //   - email: string (required)
+    //   - phoneNumber: string (optional)
+    //   - photoURL: string (optional)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: ads
+    // Document ID: adId
+    // Fields:
+    //   - authorId: string (required)
+    //   - title: string (required)
+    //   - description: string (required)
+    //   - category: string (required)
+    //   - price: number (optional)
+    //   - images: list of strings (max 6)
+    //   - location: map (required)
+    //   - details: map (optional)
+    //   - createdAt: timestamp (required)
+    //   - updatedAt: timestamp (required)
+    //   - status: string (enum: active, sold, deleted)
+    //   - duplicateHash: string (required, unique per user)
+    //
+    // Collection: conversations
+    // Document ID: conversationId
+    // Fields:
+    //   - adId: string (required)
+    //   - participants: list of strings (required, size 2)
+    //   - lastMessage: string (optional)
+    //   - updatedAt: timestamp (required)
+    //
+    // Collection: conversations/{conversationId}/messages
+    // Document ID: messageId
+    // Fields:
+    //   - conversationId: string (required)
+    //   - senderId: string (required)
+    //   - text: string (required)
+    //   - createdAt: timestamp (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') == 'admin' ||
+          (request.auth.token.email == "elodie.bouyer@laposte.net" && request.auth.token.email_verified == true));
+    }
+
+    function isVerified() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isVerified', false) == true;
+    }
+
+    function isFieldUnchanged(field) {
+      return !(field in request.resource.data) || (field in resource.data && request.resource.data[field] == resource.data[field]);
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string &&
+        dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.uid is string &&
+             data.displayName is string && data.displayName.size() > 0 && data.displayName.size() < 100 &&
+             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
+             (!('isProfessional' in data) || data.isProfessional is bool) &&
+             (!('isFeaturedPro' in data) || data.isFeaturedPro is bool) &&
+             (!('featuredProPriority' in data) || data.featuredProPriority is number) &&
+             (!('featuredProPosition' in data) || data.featuredProPosition is string) &&
+             (!('featuredProActive' in data) || data.featuredProActive is bool) &&
+             (!('isVerified' in data) || data.isVerified is bool) &&
+             (!('role' in data) || data.role in ['admin', 'user']) &&
+             isValidDateString(data.createdAt);
+    }
+
+    function isValidAd(data) {
+      return data.authorId is string &&
+             data.userName is string &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.description is string && data.description.size() > 0 && data.description.size() < 5000 &&
+             data.category is string &&
+             data.type in ['offer', 'seek'] &&
+             (!('price' in data) || data.price is number) &&
+             (data.images is list && data.images.size() <= 6) &&
+             data.location is map &&
+             data.details is map &&
+             data.status in ['active', 'sold', 'deleted'] &&
+             data.duplicateHash is string &&
+             isValidDateString(data.createdAt) &&
+             isValidDateString(data.updatedAt) &&
+             (!('expiresAt' in data) || isValidDateString(data.expiresAt)) &&
+             (!('isFeatured' in data) || data.isFeatured is bool) &&
+             (!('featuredPriority' in data) || data.featuredPriority is number) &&
+             (!('featuredPosition' in data) || data.featuredPosition is number) &&
+             (!('featuredActive' in data) || data.featuredActive is bool) &&
+             (!('authorIsVerified' in data) || data.authorIsVerified is bool);
+    }
+
+    function isValidConversation(data) {
+      return data.participants is list && data.participants.size() == 2 &&
+             request.auth.uid in data.participants &&
+             (!('adTitle' in data) || data.adTitle is string) &&
+             (!('adImage' in data) || data.adImage is string) &&
+             (!('isSystem' in data) || data.isSystem is bool) &&
+             (!('lastSenderName' in data) || data.lastSenderName is string) &&
+             (!('lastSenderId' in data) || data.lastSenderId is string) &&
+             (!('lastMessage' in data) || data.lastMessage is string) &&
+             (!('unreadCount' in data) || data.unreadCount is map) &&
+             isValidDateString(data.updatedAt);
+    }
+
+    function isValidMessage(data) {
+      return data.senderId == request.auth.uid &&
+             ((!('text' in data) || (data.text is string && data.text.size() < 2000)) ||
+              (!('audioUrl' in data) || (data.audioUrl is string && data.audioUrl.size() < 1000000))) &&
+             isValidDateString(data.createdAt);
+    }
+
+    function isValidFavorite(data) {
+      return data.userId == request.auth.uid &&
+             data.adId is string;
+    }
+
+    function isValidContactMessage(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
+             data.subject is string && data.subject.size() > 0 && data.subject.size() < 200 &&
+             data.message is string && data.message.size() > 0 && data.message.size() < 5000 &&
+             isValidDateString(data.createdAt) &&
+             (!('userId' in data) || data.userId is string || data.userId == null) &&
+             (!('reply' in data) || data.reply is string) &&
+             (!('repliedAt' in data) || isValidDateString(data.repliedAt)) &&
+             (!('repliedBy' in data) || data.repliedBy is string);
+    }
+
+    function isValidReport(data) {
+      return data.reporterId == request.auth.uid &&
+             data.adId is string &&
+             data.adTitle is string &&
+             data.reporterEmail is string &&
+             data.reason is string && data.reason.size() > 0 &&
+             (!('details' in data) || (data.details is string && data.details.size() < 1000)) &&
+             data.status == 'pending' &&
+             isValidDateString(data.createdAt);
+    }
+
+    function isValidReview(data) {
+      return data.reviewerId == request.auth.uid &&
+             data.targetUserId is string &&
+             data.adId is string &&
+             data.rating is number && data.rating >= 1 && data.rating <= 5 &&
+             data.comment is string && data.comment.size() > 0 && data.comment.size() < 1000 &&
+             isValidDateString(data.createdAt);
+    }
+
+    function isValidBanner(data) {
+      return data.userId is string &&
+             data.userName is string &&
+             data.imageUrl is string && data.imageUrl.size() > 0 &&
+             data.linkUrl is string && data.linkUrl.size() > 0 &&
+             data.isActive is bool &&
+             isValidDateString(data.createdAt) &&
+             (!('expiresAt' in data) || isValidDateString(data.expiresAt));
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated(); // Needed to see seller info, but we should be careful with PII
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && 
+                      (!('role' in request.resource.data) || request.resource.data.role == 'user') &&
+                      (!('isVerified' in request.resource.data) || request.resource.data.isVerified == false) &&
+                      (!('isProfessional' in request.resource.data) || request.resource.data.isProfessional == false) &&
+                      (!('isFeaturedPro' in request.resource.data) || request.resource.data.isFeaturedPro == false);
+      allow update: if (isOwner(userId) && isValidUser(request.resource.data) &&
+                       isFieldUnchanged('role') &&
+                       isFieldUnchanged('isVerified') &&
+                       isFieldUnchanged('isProfessional') &&
+                       isFieldUnchanged('isFeaturedPro') &&
+                       isFieldUnchanged('rating') &&
+                       isFieldUnchanged('reviewCount')) || 
+                      (isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'reviewCount'])) ||
+                      isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /ads/{adId} {
+      allow read: if true;
+      allow create: if (isAuthenticated() && request.resource.data.authorId == request.auth.uid && 
+                      isValidAd(request.resource.data) &&
+                      (!('isFeatured' in request.resource.data) || request.resource.data.isFeatured == false) &&
+                      (!('authorIsVerified' in request.resource.data) || 
+                       request.resource.data.authorIsVerified == isVerified())) || isAdmin();
+      allow update: if (isAuthenticated() && resource.data.authorId == request.auth.uid && 
+                       request.resource.data.authorId == resource.data.authorId && 
+                       isValidAd(request.resource.data) &&
+                       isFieldUnchanged('isFeatured') &&
+                       isFieldUnchanged('featuredActive') &&
+                       (!('authorIsVerified' in request.resource.data) || 
+                        request.resource.data.authorIsVerified == isVerified())) || isAdmin();
+      allow delete: if (isAuthenticated() && resource.data.authorId == request.auth.uid) || isAdmin();
+    }
+
+    match /conversations/{conversationId} {
+      allow read: if isAuthenticated() && (request.auth.uid in resource.data.participants || isAdmin());
+      allow create: if isAuthenticated() && isValidConversation(request.resource.data);
+      allow update: if isAuthenticated() && (request.auth.uid in resource.data.participants || isAdmin()) && isValidConversation(request.resource.data);
+      allow delete: if isAdmin();
+
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && (request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants || isAdmin());
+        allow create: if isAuthenticated() && (request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants || isAdmin()) && isValidMessage(request.resource.data);
+      }
+    }
+
+    match /favorites/{favoriteId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && isValidFavorite(request.resource.data);
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    match /contact_messages/{messageId} {
+      allow read: if isAdmin();
+      allow create: if isValidContactMessage(request.resource.data);
+      allow update, delete: if isAdmin();
+    }
+
+    match /reports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated() && isValidReport(request.resource.data);
+      allow update, delete: if isAdmin();
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isValidReview(request.resource.data);
+      allow update: if isAuthenticated() && resource.data.reviewerId == request.auth.uid && isValidReview(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /banners/{bannerId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidBanner(request.resource.data);
+      allow update: if isAdmin() && isValidBanner(request.resource.data);
+      allow delete: if isAdmin();
+    }
+  }
+}

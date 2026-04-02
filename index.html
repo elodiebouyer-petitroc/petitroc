@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PetiTroc - Petites annonces gratuites et simples, comme avant</title>
+    <meta name="description" content="PetiTroc est la plateforme de troc 100% gratuite et solidaire. Publiez vos annonces gratuitement et redonnez vie à vos objets sans commission." />
+    <meta name="keywords" content="petites annonces, troc, gratuit, occasion, seconde main, solidaire, économie circulaire" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://petitroc.fr/" />
+    <meta property="og:title" content="PetiTroc - Petites annonces gratuites et simples" />
+    <meta property="og:description" content="La plateforme de troc 100% gratuite et solidaire. Publiez vos annonces gratuitement et redonnez vie à vos objets." />
+    <meta property="og:image" content="/logo-petitroc.png" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://petitroc.fr/" />
+    <meta property="twitter:title" content="PetiTroc - Petites annonces gratuites et simples" />
+    <meta property="twitter:description" content="La plateforme de troc 100% gratuite et solidaire. Publiez vos annonces gratuitement et redonnez vie à vos objets." />
+    <meta property="twitter:image" content="/logo-petitroc.png" />
+
+    <!-- Canonical Link -->
+    <link rel="canonical" href="https://www.petitroc.fr" />
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#F97316" />
+    <link rel="apple-touch-icon" href="/logo-petitroc.png" />
+    
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(registration => {
+              console.log('SW registered: ', registration);
+            })
+            .catch(registrationError => {
+              console.log('SW registration failed: ', registrationError);
+            });
+        });
+      }
+    </script>
+
+    <!-- Favicon -->
+    <link rel="icon" href="/logo-petitroc.png">
+
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "PetiTroc",
+        "url": "https://www.petitroc.fr",
+        "description": "Plateforme de petites annonces gratuites et solidaires.",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://www.petitroc.fr/?q={search_term_string}",
+          "query-input": "required name=search_term_string"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

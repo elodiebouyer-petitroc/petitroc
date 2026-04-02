@@ -1,0 +1,7 @@
+{
+  "name": "PetiTroc",
+  "description": "PetiTroc - Petites annonces gratuites et simples, comme avant. La plateforme de troc 100% gratuite et solidaire pour redonner vie à vos objets.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
