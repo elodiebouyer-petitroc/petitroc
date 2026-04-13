@@ -1,10 +1,9 @@
 {
-  "projectId": "nodal-clock-459310-v5",
-  "appId": "1:584154606813:web:e73ee17b7385dd0e6d7f34",
-  "apiKey": "AIzaSyCah_PtM9QkezCKbd18b9XG0zvzrfwWSQU",
-  "authDomain": "nodal-clock-459310-v5.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-311bfcc1-6d95-48e9-8d6c-7fb149cb48bc",
-  "storageBucket": "nodal-clock-459310-v5.firebasestorage.app",
-  "messagingSenderId": "584154606813",
-  "measurementId": ""
+  "apiKey": "AIzaSyA0gBtbMHN3qgyVJiOuQbpDqG-OYrCkGGQ",
+  "authDomain": "ngt-academy-prod.firebaseapp.com",
+  "projectId": "ngt-academy-prod",
+  "storageBucket": "ngt-academy-prod.firebasestorage.app",
+  "messagingSenderId": "325860482956",
+  "appId": "1:325860482956:web:b4132dd5a86f429055c0a9",
+  "firestoreDatabaseId": "(default)"
 }
