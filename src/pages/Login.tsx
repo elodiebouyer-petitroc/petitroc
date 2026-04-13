@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion } from "motion/react";
 import { Mail, Loader2, ArrowRight, CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { auth, sendSignInLinkToEmail } from "../firebase";
 
 export default function Login() {
   const { t } = useTranslation();
@@ -16,22 +17,17 @@ export default function Login() {
     setError("");
 
     try {
-      const response = await fetch("/api/send-magic-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setSent(true);
-        // Save email for callback
-        window.localStorage.setItem('emailForSignIn', email);
-      } else {
-        setError(data.error || "Une erreur est survenue");
-      }
-    } catch (err) {
-      setError("Impossible d'envoyer le lien. Réessayez plus tard.");
+      const actionCodeSettings = {
+        url: `${window.location.origin}/auth/callback`,
+        handleCodeInApp: true,
+      };
+      
+      await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+      window.localStorage.setItem('emailForSignIn', email);
+      setSent(true);
+    } catch (err: any) {
+      console.error(err);
+      setError("Impossible d'envoyer le lien. Vérifiez que votre email est valide.");
     } finally {
       setLoading(false);
     }
